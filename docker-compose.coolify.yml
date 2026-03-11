@@ -1,0 +1,75 @@
+# Coolify deployment — goclaw (managed mode) + pgvector + web dashboard.
+#
+# Source: https://github.com/deltaGbi/gcl
+# Merges: docker-compose.yml + docker-compose.managed.yml + docker-compose.selfservice.yml
+
+services:
+
+  postgres:
+    image: pgvector/pgvector:pg18
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-goclaw}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-goclaw}
+      POSTGRES_DB: ${POSTGRES_DB:-goclaw}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-goclaw}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  goclaw:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        ENABLE_OTEL: "false"
+    environment:
+      - GOCLAW_HOST=0.0.0.0
+      - GOCLAW_PORT=18790
+      - GOCLAW_CONFIG=/app/data/config.json
+      - GOCLAW_MODE=managed
+      - GOCLAW_GATEWAY_TOKEN=${GOCLAW_GATEWAY_TOKEN}
+      - GOCLAW_ENCRYPTION_KEY=${GOCLAW_ENCRYPTION_KEY}
+      - GOCLAW_OPENROUTER_API_KEY=${GOCLAW_OPENROUTER_API_KEY}
+      - GOCLAW_MODEL=${GOCLAW_MODEL:-}
+      - GOCLAW_POSTGRES_DSN=postgres://${POSTGRES_USER:-goclaw}:${POSTGRES_PASSWORD:-goclaw}@postgres:5432/${POSTGRES_DB:-goclaw}?sslmode=disable
+      - GOCLAW_OWNER_IDS=${GOCLAW_OWNER_IDS:-}
+      - GOCLAW_TRACE_VERBOSE=${GOCLAW_TRACE_VERBOSE:-0}
+    volumes:
+      - goclaw-data:/app/data
+      - goclaw-workspace:/app/workspace
+      - goclaw-skills:/app/skills
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=256m
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '2.0'
+          pids: 200
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  goclaw-ui:
+    build:
+      context: ./ui/web
+      dockerfile: Dockerfile
+    depends_on:
+      - goclaw
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  goclaw-data:
+  goclaw-workspace:
+  goclaw-skills:

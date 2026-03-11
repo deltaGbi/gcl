@@ -1,7 +1,5 @@
 # Coolify deployment — goclaw (managed mode) + pgvector + web dashboard.
-#
 # Source: https://github.com/deltaGbi/gcl
-# Merges: docker-compose.yml + docker-compose.managed.yml + docker-compose.selfservice.yml
 
 services:
 
@@ -12,12 +10,13 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-goclaw}
       POSTGRES_DB: ${POSTGRES_DB:-goclaw}
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - postgres-data-v2:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-goclaw}"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
+      interval: 10s
+      timeout: 10s
+      retries: 20
+      start_period: 30s
     restart: unless-stopped
 
   goclaw:
@@ -34,7 +33,7 @@ services:
       - GOCLAW_GATEWAY_TOKEN=${GOCLAW_GATEWAY_TOKEN}
       - GOCLAW_ENCRYPTION_KEY=${GOCLAW_ENCRYPTION_KEY}
       - GOCLAW_OPENROUTER_API_KEY=${GOCLAW_OPENROUTER_API_KEY}
-      - GOCLAW_MODEL=${GOCLAW_MODEL:-}
+      - GOCLAW_MODEL=${GOCLAW_MODEL:-openrouter/auto}
       - GOCLAW_POSTGRES_DSN=postgres://${POSTGRES_USER:-goclaw}:${POSTGRES_PASSWORD:-goclaw}@postgres:5432/${POSTGRES_DB:-goclaw}?sslmode=disable
       - GOCLAW_OWNER_IDS=${GOCLAW_OWNER_IDS:-}
       - GOCLAW_TRACE_VERBOSE=${GOCLAW_TRACE_VERBOSE:-0}
@@ -69,7 +68,7 @@ services:
     restart: unless-stopped
 
 volumes:
-  postgres-data:
+  postgres-data-v2:
   goclaw-data:
   goclaw-workspace:
   goclaw-skills:
